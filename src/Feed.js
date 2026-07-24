@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from './firebase';
 import { collection, addDoc, getDocs, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import Chat from './Chat';
 
 function Feed({ user }) {
   const [productos, setProductos] = useState([]);
@@ -8,6 +9,7 @@ function Feed({ user }) {
   const [precio, setPrecio] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [cargando, setCargando] = useState(false);
+  const [productoSeleccionado, setProductoSeleccionado] = useState(null);
 
   const obtenerProductos = async () => {
     try {
@@ -52,6 +54,17 @@ function Feed({ user }) {
     }
     setCargando(false);
   };
+
+  // Si hay un producto seleccionado, mostramos la pantalla de Chat
+  if (productoSeleccionado) {
+    return (
+      <Chat 
+        producto={productoSeleccionado} 
+        user={user} 
+        volver={() => setProductoSeleccionado(null)} 
+      />
+    );
+  }
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif' }}>
@@ -105,9 +118,9 @@ function Feed({ user }) {
               ${prod.precio ? prod.precio.toLocaleString('es-CL') : prod.precio}
             </p>
             <p style={{ fontSize: '14px', color: '#555', margin: '0 0 10px 0' }}>{prod.descripcion}</p>
-            <p style={{ fontSize: '12px', color: '#888' }}>Vendedor: {prod.vendedorEmail.split('@')[0]}</p>
+            <p style={{ fontSize: '12px', color: '#888' }}>Vendedor: {prod.vendedorEmail ? prod.vendedorEmail.split('@')[0] : ''}</p>
             <button 
-              onClick={() => alert(`Próximamente: Abrir chat con ${prod.vendedorEmail}`)}
+              onClick={() => setProductoSeleccionado(prod)}
               style={{ width: '100%', padding: '8px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}
             >
               Contactar / Chat
