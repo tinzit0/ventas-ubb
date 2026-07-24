@@ -36,6 +36,10 @@ function Feed({ user }) {
   // Contador de mensajes no leídos
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
 
+  // Estado para el menú desplegable de Mis Chats
+  const [mostrarMenuChats, setMostrarMenuChats] = useState(false);
+  const [misChatsProdIds, setMisChatsProdIds] = useState([]);
+
   // Estado para el visor / modal de fotos a pantalla completa
   const [modalGaleria, setModalGaleria] = useState({ abierto: false, fotos: [], indice: 0 });
 
@@ -66,23 +70,44 @@ function Feed({ user }) {
     obtenerProductos();
   }, []);
 
-  // Listener para contar mensajes no leídos en tiempo real
+  // Listener para contar mensajes no leídos y detectar productos con chats activos
   useEffect(() => {
     if (!user) return;
 
-    const qMensajes = query(
+    // Mensajes dirigidos al usuario que no se han leído
+    const qMensajesNoLeidos = query(
       collection(db, 'mensajes'),
       where('paraUid', '==', user.uid),
       where('leido', '==', false)
     );
 
-    const unsubscribe = onSnapshot(qMensajes, (snapshot) => {
+    const unsubscribeNoLeidos = onSnapshot(qMensajesNoLeidos, (snapshot) => {
       setMensajesNoLeidos(snapshot.size);
     }, (error) => {
-      console.log("Notificaciones no leídas:", error.message);
+      console.log("Error consultando no leídos:", error.message);
     });
 
-    return () => unsubscribe();
+    // Detectar en qué chats ha participado el usuario (como remitente o destinatario)
+    const qMisMensajes = query(
+      collection(db, 'mensajes'),
+      where('paraUid', '==', user.uid)
+    );
+
+    const unsubscribeMisMensajes = onSnapshot(qMisMensajes, (snapshot) => {
+      const prodIds = new Set();
+      snapshot.forEach(docSnap => {
+        const data = docSnap.data();
+        if (data.productoId) prodIds.add(data.productoId);
+      });
+      setMisChatsProdIds(Array.from(prodIds));
+    }, (error) => {
+      console.log("Error consultando mis chats:", error.message);
+    });
+
+    return () => {
+      unsubscribeNoLeidos();
+      unsubscribeMisMensajes();
+    };
   }, [user]);
 
   const cambiarClave = async () => {
@@ -134,7 +159,6 @@ function Feed({ user }) {
     try {
       let imagenesUrls = [];
 
-      // Subir cada foto seleccionada a ImgBB
       if (archivosImagenes.length > 0) {
         for (const archivo of archivosImagenes) {
           const formData = new FormData();
@@ -227,6 +251,9 @@ function Feed({ user }) {
     return texto.includes(busqueda.toLowerCase());
   });
 
+  // Lista de productos con los que el usuario tiene o ha publicado chats
+  const productosConChats = productos.filter(p => misChatsProdIds.includes(p.id) || p.vendedorUid === user.uid);
+
   if (productoSeleccionado) {
     return (
       <Chat 
@@ -239,7 +266,7 @@ function Feed({ user }) {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif' }}>
-      {/* Barra superior con distintivo de Admin, Notificaciones y Opciones de Cuenta */}
+      {/* Barra superior con selector de chats, notificaciones y perfil */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0056b3', paddingBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <h2 style={{ margin: 0, display: 'inline-block', marginRight: '10px' }}>Mercado UBB</h2>
@@ -250,15 +277,83 @@ function Feed({ user }) {
           )}
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Alerta de Mensajes No Leídos */}
-          {mensajesNoLeidos > 0 && (
-            <span style={{ backgroundColor: '#dc3545', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', animation: 'pulse 1.5s infinite' }}>
-              💬 {mensajesNoLeidos} mensaje(s) nuevo(s)
-            </span>
-          )}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', position: 'relative' }}>
+          {/* Desplegable de Mis Chats */}
+          <div style={{ position: 'relative' }}>
+            <button 
+              onClick={() => setMostrarMenuChats(!mostrarMenuChats)}
+              style={{ 
+                padding: '6px 12px', 
+                backgroundColor: '#0056b3', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px', 
+                cursor: 'pointer', 
+                fontSize: '13px', 
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px'
+              }}
+            >
+              💬 Mis Chats {mensajesNoLeidos > 0 && `(${mensajesNoLeidos})`} ▾
+            </button>
 
-          <span style={{ fontSize: '14px' }}>{user.email}</span>
+            {mostrarMenuChats && (
+              <div style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '5px',
+                backgroundColor: 'white',
+                border: '1px solid #ccc',
+                borderRadius: '6px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                width: '260px',
+                maxHeight: '300px',
+                overflowY: 'auto',
+                zIndex: 1000
+              }}>
+                <div style={{ padding: '8px 12px', fontSize: '12px', fontWeight: 'bold', borderBottom: '1px solid #eee', backgroundColor: '#f8f9fa' }}>
+                  Selecciona una conversación:
+                </div>
+                {productosConChats.length > 0 ? (
+                  productosConChats.map((prod) => (
+                    <div 
+                      key={prod.id}
+                      onClick={() => {
+                        setProductoSeleccionado(prod);
+                        setMostrarMenuChats(false);
+                      }}
+                      style={{
+                        padding: '10px 12px',
+                        borderBottom: '1px solid #f0f0f0',
+                        cursor: 'pointer',
+                        fontSize: '13px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '2px'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#e9ecef'}
+                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'white'}
+                    >
+                      <strong style={{ color: '#0056b3' }}>{prod.titulo}</strong>
+                      <span style={{ fontSize: '11px', color: '#666' }}>
+                        {prod.vendedorUid === user.uid ? 'Tu publicación' : `Vendedor: ${prod.vendedorEmail ? prod.vendedorEmail.split('@')[0] : ''}`}
+                      </span>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: '12px', fontSize: '12px', color: '#888', textAlign: 'center' }}>
+                    Aún no tienes conversaciones.
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          <span style={{ fontSize: '13px', color: '#555' }}>{user.email}</span>
+
           <button 
             onClick={cambiarClave} 
             style={{ padding: '5px 10px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
