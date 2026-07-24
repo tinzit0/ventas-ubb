@@ -23,6 +23,9 @@ function Feed({ user }) {
   const [descripcion, setDescripcion] = useState('');
   const [busqueda, setBusqueda] = useState('');
   
+  // Filtro de ocultar vendidos
+  const [ocultarVendidos, setOcultarVendidos] = useState(false);
+
   // Soporte para múltiples imágenes
   const [archivosImagenes, setArchivosImagenes] = useState([]);
   const [previewsImagenes, setPreviewsImagenes] = useState([]);
@@ -243,9 +246,12 @@ function Feed({ user }) {
     }
   };
 
+  // Filtrado de productos por búsqueda y por estado "ocultar vendidos"
   const productosFiltrados = productos.filter((p) => {
     const texto = (p.titulo + ' ' + (p.descripcion || '')).toLowerCase();
-    return texto.includes(busqueda.toLowerCase());
+    const coincideTexto = texto.includes(busqueda.toLowerCase());
+    const coincideEstado = ocultarVendidos ? p.vendido !== true : true;
+    return coincideTexto && coincideEstado;
   });
 
   const productosConChats = productos.filter(p => misChatsProdIds.includes(p.id) || p.vendedorUid === user.uid);
@@ -265,7 +271,6 @@ function Feed({ user }) {
       {/* Barra superior responsiva */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderBottom: '2px solid #0056b3', paddingBottom: '12px' }}>
         
-        {/* Fila 1: Título y Rol */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <h2 style={{ margin: 0 }}>Mercado UBB</h2>
           {ES_ADMIN && (
@@ -275,10 +280,8 @@ function Feed({ user }) {
           )}
         </div>
 
-        {/* Fila 2: Mis Chats + Usuario + Botones */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
           
-          {/* Contenedor del Botón Mis Chats y su Menú Desplegable Adaptativo */}
           <div style={{ position: 'relative' }}>
             <button 
               onClick={() => setMostrarMenuChats(!mostrarMenuChats)}
@@ -350,7 +353,6 @@ function Feed({ user }) {
             )}
           </div>
 
-          {/* Opciones de Perfil y Sesión */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <button 
               onClick={cambiarClave} 
@@ -396,7 +398,6 @@ function Feed({ user }) {
             style={{ width: '100%', padding: '8px', marginBottom: '10px', boxSizing: 'border-box', height: '60px' }}
           />
           
-          {/* Opciones para Adjuntar / Tomar Fotos */}
           <div style={{ marginBottom: '15px' }}>
             <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', fontWeight: 'bold' }}>
               Fotos del Producto (puedes agregar varias):
@@ -499,16 +500,30 @@ function Feed({ user }) {
         </form>
       </div>
 
-      {/* Lista de Productos con Buscador */}
+      {/* Lista de Productos con Buscador y Filtro Ocultar Vendidos */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
         <h3 style={{ margin: 0 }}>Productos Disponibles</h3>
-        <input 
-          type="text" 
-          placeholder="🔍 Buscar producto..." 
-          value={busqueda} 
-          onChange={(e) => setBusqueda(e.target.value)} 
-          style={{ padding: '8px 12px', borderRadius: '20px', border: '1px solid #ccc', minWidth: '180px' }}
-        />
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          {/* Checkbox para Ocultar Vendidos */}
+          <label style={{ fontSize: '13px', cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: '#e9ecef', padding: '6px 10px', borderRadius: '15px' }}>
+            <input 
+              type="checkbox" 
+              checked={ocultarVendidos} 
+              onChange={(e) => setOcultarVendidos(e.target.checked)} 
+              style={{ cursor: 'pointer' }}
+            />
+            👁️ Ocultar vendidos
+          </label>
+
+          <input 
+            type="text" 
+            placeholder="🔍 Buscar producto..." 
+            value={busqueda} 
+            onChange={(e) => setBusqueda(e.target.value)} 
+            style={{ padding: '8px 12px', borderRadius: '20px', border: '1px solid #ccc', minWidth: '160px' }}
+          />
+        </div>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '15px' }}>
