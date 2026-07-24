@@ -19,14 +19,13 @@ function Chat({ producto, user, volver }) {
   const [nuevoMensaje, setNuevoMensaje] = useState('');
   const endRef = useRef(null);
 
-  // Determinamos el destinatario de la conversación
   const esMiProducto = producto.vendedorUid === user.uid;
   const paraUid = esMiProducto ? '' : producto.vendedorUid;
 
   useEffect(() => {
     if (!producto || !user) return;
 
-    // Obtener los mensajes del producto actual
+    // Escuchar mensajes en tiempo real
     const q = query(
       collection(db, 'mensajes'),
       where('productoId', '==', producto.id),
@@ -39,7 +38,6 @@ function Chat({ producto, user, volver }) {
         const data = docSnap.data();
         docs.push({ id: docSnap.id, ...data });
 
-        // Marcar como leído si el mensaje fue enviado para mí y aún no está leído
         if (data.paraUid === user.uid && !data.leido) {
           updateDoc(doc(db, 'mensajes', docSnap.id), { leido: true });
         }
@@ -85,7 +83,7 @@ function Chat({ producto, user, volver }) {
       );
       const snapshot = await getDocs(q);
       
-      const batchPromises = snapshot.docs.map((docSnap) => deleteDoc(doc(db, 'mensajes', docSnap.id)));
+      const batchPromises = snapshot.docs.map((docSnap) => deleteDoc(doc(docSnap.ref)));
       await Promise.all(batchPromises);
 
       alert('Chat eliminado con éxito.');
@@ -97,7 +95,6 @@ function Chat({ producto, user, volver }) {
 
   return (
     <div style={{ maxWidth: '600px', margin: '0 auto', padding: '15px', fontFamily: 'sans-serif' }}>
-      {/* Encabezado del Chat con Botón Borrar Chat */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0056b3', paddingBottom: '10px', marginBottom: '15px' }}>
         <div>
           <button onClick={volver} style={{ padding: '6px 12px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', marginRight: '10px' }}>
@@ -114,7 +111,6 @@ function Chat({ producto, user, volver }) {
         </button>
       </div>
 
-      {/* Contenedor de Mensajes */}
       <div style={{ height: '350px', overflowY: 'auto', border: '1px solid #ccc', borderRadius: '8px', padding: '12px', backgroundColor: '#f9f9f9', marginBottom: '15px' }}>
         {mensajes.length === 0 ? (
           <p style={{ textAlign: 'center', color: '#888', marginTop: '140px', fontSize: '13px' }}>Inicia la conversación preguntando por este producto...</p>
@@ -152,7 +148,6 @@ function Chat({ producto, user, volver }) {
         <div ref={endRef} />
       </div>
 
-      {/* Input para enviar mensaje */}
       <form onSubmit={handleEnviar} style={{ display: 'flex', gap: '8px' }}>
         <input 
           type="text" 

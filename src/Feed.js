@@ -3,7 +3,6 @@ import { db, auth } from './firebase';
 import { 
   collection, 
   addDoc, 
-  getDocs, 
   serverTimestamp, 
   query, 
   orderBy, 
@@ -57,25 +56,24 @@ function Feed({ user }) {
   // DEFINICIÓN DE ADMINISTRADOR:
   const ES_ADMIN = user.email === 'martin.bustamante2201@alumnos.ubiobio.cl';
 
-  const obtenerProductos = async () => {
-    try {
-      const q = query(collection(db, 'productos'), orderBy('creadoEn', 'desc'));
-      const querySnapshot = await getDocs(q);
+  // OBTENER PRODUCTOS EN TIEMPO REAL CON ONSNAPSHOT
+  useEffect(() => {
+    const q = query(collection(db, 'productos'), orderBy('creadoEn', 'desc'));
+    
+    const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const docs = [];
       querySnapshot.forEach((docSnap) => {
         docs.push({ id: docSnap.id, ...docSnap.data() });
       });
       setProductos(docs);
-    } catch (error) {
-      console.error("Error al obtener productos: ", error);
-    }
-  };
+    }, (error) => {
+      console.error("Error al escuchar productos en tiempo real: ", error);
+    });
 
-  useEffect(() => {
-    obtenerProductos();
+    return () => unsubscribe();
   }, []);
 
-  // Listener para contar mensajes no leídos y detectar productos con chats activos
+  // Listener para contar mensajes no leídos y detectar productos con chats activos en tiempo real
   useEffect(() => {
     if (!user) return;
 
@@ -195,7 +193,6 @@ function Feed({ user }) {
 
       limpiarFormulario();
       alert('¡Producto publicado con éxito!');
-      obtenerProductos();
     } catch (error) {
       alert('Error al publicar: ' + error.message);
     }
@@ -213,7 +210,6 @@ function Feed({ user }) {
     try {
       await deleteDoc(doc(db, 'productos', productoId));
       alert('Publicación eliminada correctamente.');
-      obtenerProductos();
     } catch (error) {
       alert('Error al eliminar: ' + error.message);
     }
@@ -225,7 +221,6 @@ function Feed({ user }) {
       await updateDoc(productoRef, {
         vendido: !estadoActual
       });
-      obtenerProductos();
     } catch (error) {
       alert('Error al cambiar el estado del producto: ' + error.message);
     }
@@ -245,7 +240,6 @@ function Feed({ user }) {
       });
       alert('¡Publicación actualizada con éxito!');
       setProductoAEditar(null);
-      obtenerProductos();
     } catch (error) {
       alert('Error al actualizar: ' + error.message);
     }
@@ -527,7 +521,6 @@ function Feed({ user }) {
         <h3 style={{ margin: 0 }}>Productos Disponibles</h3>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          {/* Filtro Categoría */}
           <select 
             value={categoriaFiltro} 
             onChange={(e) => setCategoriaFiltro(e.target.value)} 
@@ -541,7 +534,6 @@ function Feed({ user }) {
             <option value="Otros">🛠️ Otros</option>
           </select>
 
-          {/* Checkbox para Ocultar Vendidos */}
           <label style={{ fontSize: '12px', cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#e9ecef', padding: '6px 10px', borderRadius: '15px' }}>
             <input 
               type="checkbox" 
@@ -702,7 +694,6 @@ function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeModificar, onEliminar, on
               style={{ width: '100%', height: '100%', objectFit: 'contain', filter: estaVendido ? 'grayscale(30%)' : 'none' }} 
             />
 
-            {/* Etiqueta de Categoría */}
             {prod.categoria && (
               <span style={{
                 position: 'absolute',
