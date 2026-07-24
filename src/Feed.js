@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from './firebase';
 import { collection, addDoc, getDocs, serverTimestamp, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { updatePassword } from 'firebase/auth';
 import Chat from './Chat';
 
 function Feed({ user }) {
@@ -8,6 +9,7 @@ function Feed({ user }) {
   const [titulo, setTitulo] = useState('');
   const [precio, setPrecio] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [busqueda, setBusqueda] = useState('');
   
   // Soporte para múltiples imágenes
   const [archivosImagenes, setArchivosImagenes] = useState([]);
@@ -45,6 +47,22 @@ function Feed({ user }) {
   useEffect(() => {
     obtenerProductos();
   }, []);
+
+  const cambiarClave = async () => {
+    const nuevaClave = window.prompt("Ingresa tu nueva contraseña (mínimo 6 caracteres):");
+    if (!nuevaClave) return;
+    if (nuevaClave.length < 6) {
+      alert("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+
+    try {
+      await updatePassword(auth.currentUser, nuevaClave);
+      alert("¡Contraseña actualizada con éxito!");
+    } catch (error) {
+      alert("Error (si llevas mucho tiempo logueado, re-inicia sesión e inténtalo de nuevo): " + error.message);
+    }
+  };
 
   const handleSeleccionarImagenes = (filesList) => {
     if (!filesList || filesList.length === 0) return;
@@ -134,6 +152,12 @@ function Feed({ user }) {
     }
   };
 
+  // Filtrado de productos por título o descripción
+  const productosFiltrados = productos.filter((p) => {
+    const texto = (p.titulo + ' ' + (p.descripcion || '')).toLowerCase();
+    return texto.includes(busqueda.toLowerCase());
+  });
+
   if (productoSeleccionado) {
     return (
       <Chat 
@@ -146,8 +170,8 @@ function Feed({ user }) {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif' }}>
-      {/* Barra superior con distintivo de Admin */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0056b3', paddingBottom: '10px' }}>
+      {/* Barra superior con distintivo de Admin y Opciones de Cuenta */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0056b3', paddingBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <h2 style={{ margin: 0, display: 'inline-block', marginRight: '10px' }}>Mercado UBB</h2>
           {ES_ADMIN && (
@@ -156,9 +180,18 @@ function Feed({ user }) {
             </span>
           )}
         </div>
-        <div>
-          <span style={{ fontSize: '14px', marginRight: '10px' }}>{user.email}</span>
-          <button onClick={() => auth.signOut()} style={{ padding: '5px 10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '14px' }}>{user.email}</span>
+          <button 
+            onClick={cambiarClave} 
+            style={{ padding: '5px 10px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
+          >
+            🔒 Cambiar Clave
+          </button>
+          <button 
+            onClick={() => auth.signOut()} 
+            style={{ padding: '5px 10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
+          >
             Cerrar Sesión
           </button>
         </div>
@@ -297,10 +330,20 @@ function Feed({ user }) {
         </form>
       </div>
 
-      {/* Lista de Productos */}
-      <h3>Productos Disponibles</h3>
+      {/* Lista de Productos con Buscador */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
+        <h3 style={{ margin: 0 }}>Productos Disponibles</h3>
+        <input 
+          type="text" 
+          placeholder="🔍 Buscar producto..." 
+          value={busqueda} 
+          onChange={(e) => setBusqueda(e.target.value)} 
+          style={{ padding: '8px 12px', borderRadius: '20px', border: '1px solid #ccc', minWidth: '200px' }}
+        />
+      </div>
+
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '15px' }}>
-        {productos.map((prod) => {
+        {productosFiltrados.map((prod) => {
           const esMiProducto = prod.vendedorUid === user.uid;
           const puedeEliminar = esMiProducto || ES_ADMIN;
 
