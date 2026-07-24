@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import Login from './Login';
-import Feed from './Feed';
+import Login from './login';
+import Feed from './feed';
 
 function App() {
   const [user, setUser] = useState(null);
@@ -17,7 +17,11 @@ function App() {
   }, []);
 
   if (cargando) {
-    return <div style={{ textAlign: 'center', marginTop: '50px', fontFamily: 'sans-serif' }}>Cargando Mercado UBB...</div>;
+    return (
+      <div style={{ textAlign: 'center', marginTop: '50px', fontFamily: 'sans-serif' }}>
+        Cargando Mercado UBB...
+      </div>
+    );
   }
 
   return (
