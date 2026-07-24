@@ -434,20 +434,22 @@ function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeEliminar, onEliminar, onC
   );
 }
 
-// Modal a Pantalla Completa para Expandir Fotos y Deslizar
+// Modal a Pantalla Completa Optimizado para Celulares
 function VisorFotosModal({ modalGaleria, setModalGaleria }) {
   const { fotos, indice } = modalGaleria;
 
   const cerrar = () => setModalGaleria({ abierto: false, fotos: [], indice: 0 });
 
-  const anterior = () => {
+  const anterior = (e) => {
+    e.stopPropagation();
     setModalGaleria(prev => ({
       ...prev,
       indice: prev.indice === 0 ? fotos.length - 1 : prev.indice - 1
     }));
   };
 
-  const siguiente = () => {
+  const siguiente = (e) => {
+    e.stopPropagation();
     setModalGaleria(prev => ({
       ...prev,
       indice: prev.indice === fotos.length - 1 ? 0 : prev.indice + 1
@@ -462,54 +464,114 @@ function VisorFotosModal({ modalGaleria, setModalGaleria }) {
         left: 0,
         right: 0,
         bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.9)',
-        zIndex: 1000,
+        backgroundColor: 'rgba(0, 0, 0, 0.95)',
+        zIndex: 2000,
         display: 'flex',
-        alignItems: 'center',
-        justify: 'center',
         flexDirection: 'column',
-        padding: '20px'
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '10px'
       }}
       onClick={cerrar}
     >
-      {/* Botón cerrar */}
+      {/* Botón cerrar más grande y visible en móviles */}
       <button 
         onClick={cerrar}
         style={{
           position: 'absolute',
           top: '15px',
-          right: '20px',
+          right: '15px',
           color: 'white',
-          backgroundColor: 'transparent',
+          backgroundColor: 'rgba(255, 255, 255, 0.25)',
           border: 'none',
-          fontSize: '30px',
+          borderRadius: '50%',
+          width: '44px',
+          height: '44px',
+          fontSize: '22px',
           cursor: 'pointer',
-          fontWeight: 'bold'
+          fontWeight: 'bold',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 2100
         }}
       >
         ✕
       </button>
 
-      {/* Imagen ampliada */}
-      <div style={{ position: 'relative', maxWidth: '90vw', maxHeight: '80vh' }} onClick={e => e.stopPropagation()}>
+      {/* Contenedor principal de la imagen + Controles */}
+      <div 
+        style={{ 
+          position: 'relative', 
+          width: '100%', 
+          maxWidth: '600px',
+          maxHeight: '75vh', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center' 
+        }} 
+        onClick={e => e.stopPropagation()}
+      >
         <img 
           src={fotos[indice]} 
           alt="Ampliada" 
-          style={{ maxWidth: '100%', maxHeight: '80vh', objectFit: 'contain', borderRadius: '8px' }} 
+          style={{ 
+            maxWidth: '100%', 
+            maxHeight: '75vh', 
+            objectFit: 'contain', 
+            borderRadius: '8px' 
+          }} 
         />
 
-        {/* Flechas de navegación si hay múltiples fotos */}
+        {/* Flechas integradas con margen interno cómodo para pantallas táctiles */}
         {fotos.length > 1 && (
           <>
             <button 
               onClick={anterior}
-              style={{ position: 'absolute', left: '-15px', top: '48%', backgroundColor: 'white', color: 'black', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
+              style={{ 
+                position: 'absolute', 
+                left: '10px', 
+                top: '50%', 
+                transform: 'translateY(-50%)', 
+                backgroundColor: 'rgba(0, 0, 0, 0.65)', 
+                color: 'white', 
+                border: '1px solid rgba(255, 255, 255, 0.4)', 
+                borderRadius: '50%', 
+                width: '44px', 
+                height: '44px', 
+                cursor: 'pointer', 
+                fontSize: '20px', 
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 2050
+              }}
             >
               ❮
             </button>
+
             <button 
               onClick={siguiente}
-              style={{ position: 'absolute', right: '-15px', top: '48%', backgroundColor: 'white', color: 'black', border: 'none', borderRadius: '50%', width: '40px', height: '40px', cursor: 'pointer', fontSize: '20px', fontWeight: 'bold' }}
+              style={{ 
+                position: 'absolute', 
+                right: '10px', 
+                top: '50%', 
+                transform: 'translateY(-50%)', 
+                backgroundColor: 'rgba(0, 0, 0, 0.65)', 
+                color: 'white', 
+                border: '1px solid rgba(255, 255, 255, 0.4)', 
+                borderRadius: '50%', 
+                width: '44px', 
+                height: '44px', 
+                cursor: 'pointer', 
+                fontSize: '20px', 
+                fontWeight: 'bold',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 2050
+              }}
             >
               ❯
             </button>
@@ -517,11 +579,11 @@ function VisorFotosModal({ modalGaleria, setModalGaleria }) {
         )}
       </div>
 
-      {/* Indicador de número de foto */}
+      {/* Contador de fotos inferior */}
       {fotos.length > 1 && (
-        <p style={{ color: 'white', marginTop: '15px', fontSize: '14px' }}>
-          {indice + 1} de {fotos.length}
-        </p>
+        <div style={{ color: 'white', marginTop: '15px', fontSize: '14px', fontWeight: 'bold' }}>
+          {indice + 1} / {fotos.length}
+        </div>
       )}
     </div>
   );
