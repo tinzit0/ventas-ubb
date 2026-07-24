@@ -2,14 +2,13 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
-// Reemplazaremos estos valores cuando crees tu proyecto en la consola de Firebase (firebase.google.com)
 const firebaseConfig = {
-  apiKey: "TU_API_KEY",
+  apiKey: "AIzaSyCbTEjcFDBXh6qvnfISFAapdElhg3g30QQ",
   authDomain: "ventas-ubb.firebaseapp.com",
   projectId: "ventas-ubb",
-  storageBucket: "ventas-ubb.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId: "TU_APP_ID"
+  storageBucket: "ventas-ubb.firebasestorage.app",
+  messagingSenderId: "152970680924",
+  appId: "1:152970680924:web:981a0e839773d756bfe499"
 };
 
 const app = initializeApp(firebaseConfig);
