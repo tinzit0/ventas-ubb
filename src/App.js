@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import Login from './login';
-import Feed from './feed';
+import Feed from './Feed';
 
 function App() {
   const [user, setUser] = useState(null);
