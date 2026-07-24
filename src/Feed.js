@@ -8,9 +8,12 @@ function Feed({ user }) {
   const [titulo, setTitulo] = useState('');
   const [precio, setPrecio] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [imagenUrl, setImagenUrl] = useState('');
+  const [archivoImagen, setArchivoImagen] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+
+  // Tu API Key de ImgBB integrada:
+  const IMGBB_API_KEY = '2447ec54156a52c2b609cc1ea5d177d8';
 
   const obtenerProductos = async () => {
     try {
@@ -36,11 +39,31 @@ function Feed({ user }) {
 
     setCargando(true);
     try {
+      let imagenUrl = '';
+
+      // Si el usuario seleccionó o tomó una foto, se sube automáticamente a ImgBB
+      if (archivoImagen) {
+        const formData = new FormData();
+        formData.append('image', archivoImagen);
+
+        const respuesta = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+          method: 'POST',
+          body: formData,
+        });
+
+        const datos = await respuesta.json();
+        if (datos.success) {
+          imagenUrl = datos.data.url;
+        } else {
+          alert('No se pudo subir la foto, pero se publicará el producto.');
+        }
+      }
+
       await addDoc(collection(db, 'productos'), {
         titulo,
         precio: Number(precio),
         descripcion,
-        imagenUrl: imagenUrl.trim(),
+        imagenUrl,
         vendedorEmail: user.email,
         vendedorUid: user.uid,
         creadoEn: serverTimestamp()
@@ -49,7 +72,7 @@ function Feed({ user }) {
       setTitulo('');
       setPrecio('');
       setDescripcion('');
-      setImagenUrl('');
+      setArchivoImagen(null);
       alert('¡Producto publicado con éxito!');
       obtenerProductos();
     } catch (error) {
@@ -105,15 +128,19 @@ function Feed({ user }) {
             onChange={(e) => setDescripcion(e.target.value)} 
             style={{ width: '100%', padding: '8px', marginBottom: '10px', boxSizing: 'border-box', height: '60px' }}
           />
-          <input 
-            type="url" 
-            placeholder="URL de la imagen (opcional, ej: https://i.imgur.com/...)" 
-            value={imagenUrl} 
-            onChange={(e) => setImagenUrl(e.target.value)} 
-            style={{ width: '100%', padding: '8px', marginBottom: '10px', boxSizing: 'border-box' }}
-          />
+          
+          <div style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px', fontWeight: 'bold' }}>Adjuntar / Tomar Foto:</label>
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={(e) => setArchivoImagen(e.target.files[0])}
+              style={{ width: '100%' }}
+            />
+          </div>
+
           <button type="submit" disabled={cargando} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-            {cargando ? 'Publicando...' : 'Publicar'}
+            {cargando ? 'Subiendo foto y publicando...' : 'Publicar'}
           </button>
         </form>
       </div>
@@ -128,7 +155,6 @@ function Feed({ user }) {
                   src={prod.imagenUrl} 
                   alt={prod.titulo} 
                   style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px' }} 
-                  onError={(e) => { e.target.style.display = 'none'; }} // Oculta la imágen si el enlace está roto
                 />
               ) : (
                 <div style={{ width: '100%', height: '120px', backgroundColor: '#e9ecef', borderRadius: '6px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontSize: '12px' }}>
