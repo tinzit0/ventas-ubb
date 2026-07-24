@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from './firebase';
-import { collection, addDoc, getDocs, serverTimestamp, query, orderBy } from 'firebase/firestore';
+import { collection, addDoc, getDocs, serverTimestamp, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import Chat from './Chat';
 
 function Feed({ user }) {
@@ -12,8 +12,11 @@ function Feed({ user }) {
   const [cargando, setCargando] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
 
-  // Tu API Key de ImgBB integrada:
   const IMGBB_API_KEY = '2447ec54156a52c2b609cc1ea5d177d8';
+
+  // DEFINICIÓN DE ADMINISTRADOR:
+  // Tu correo institucional actúa como el administrador general de la app
+  const ES_ADMIN = user.email === 'martin.bustamante2201@alumnos.ubiobio.cl';
 
   const obtenerProductos = async () => {
     try {
@@ -41,7 +44,6 @@ function Feed({ user }) {
     try {
       let imagenUrl = '';
 
-      // Si el usuario seleccionó o tomó una foto, se sube automáticamente a ImgBB
       if (archivoImagen) {
         const formData = new FormData();
         formData.append('image', archivoImagen);
@@ -54,8 +56,6 @@ function Feed({ user }) {
         const datos = await respuesta.json();
         if (datos.success) {
           imagenUrl = datos.data.url;
-        } else {
-          alert('No se pudo subir la foto, pero se publicará el producto.');
         }
       }
 
@@ -81,6 +81,23 @@ function Feed({ user }) {
     setCargando(false);
   };
 
+  const handleEliminar = async (productoId) => {
+    const mensajeConfirmacion = ES_ADMIN 
+      ? '¿Modo Admin: Estás seguro de que deseas eliminar esta publicación?' 
+      : '¿Estás seguro de que deseas eliminar tu publicación?';
+
+    const confirmar = window.confirm(mensajeConfirmacion);
+    if (!confirmar) return;
+
+    try {
+      await deleteDoc(doc(db, 'productos', productoId));
+      alert('Publicación eliminada correctamente.');
+      obtenerProductos();
+    } catch (error) {
+      alert('Error al eliminar: ' + error.message);
+    }
+  };
+
   if (productoSeleccionado) {
     return (
       <Chat 
@@ -93,8 +110,16 @@ function Feed({ user }) {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif' }}>
+      {/* Barra superior con distintivo de Admin */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0056b3', paddingBottom: '10px' }}>
-        <h2>Mercado UBB</h2>
+        <div>
+          <h2 style={{ margin: 0, display: 'inline-block', marginRight: '10px' }}>Mercado UBB</h2>
+          {ES_ADMIN && (
+            <span style={{ backgroundColor: '#ffc107', color: '#000', padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
+              Modo Admin Active
+            </span>
+          )}
+        </div>
         <div>
           <span style={{ fontSize: '14px', marginRight: '10px' }}>{user.email}</span>
           <button onClick={() => auth.signOut()} style={{ padding: '5px 10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
@@ -103,6 +128,7 @@ function Feed({ user }) {
         </div>
       </div>
 
+      {/* Formulario para publicar */}
       <div style={{ backgroundColor: '#f8f9fa', padding: '15px', borderRadius: '8px', margin: '20px 0', border: '1px solid #ddd' }}>
         <h3>Publicar un producto</h3>
         <form onSubmit={handlePublicar}>
@@ -145,38 +171,68 @@ function Feed({ user }) {
         </form>
       </div>
 
+      {/* Lista de Productos */}
       <h3>Productos Disponibles</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
-        {productos.map((prod) => (
-          <div key={prod.id} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '15px', backgroundColor: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              {prod.imagenUrl ? (
-                <img 
-                  src={prod.imagenUrl} 
-                  alt={prod.titulo} 
-                  style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px' }} 
-                />
-              ) : (
-                <div style={{ width: '100%', height: '120px', backgroundColor: '#e9ecef', borderRadius: '6px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontSize: '12px' }}>
-                  Sin imagen
-                </div>
-              )}
-              <h4 style={{ margin: '0 0 10px 0' }}>{prod.titulo}</h4>
-              <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#0056b3', margin: '0 0 10px 0' }}>
-                ${prod.precio ? prod.precio.toLocaleString('es-CL') : prod.precio}
-              </p>
-              <p style={{ fontSize: '14px', color: '#555', margin: '0 0 10px 0' }}>{prod.descripcion}</p>
-              <p style={{ fontSize: '12px', color: '#888' }}>Vendedor: {prod.vendedorEmail ? prod.vendedorEmail.split('@')[0] : ''}</p>
+        {productos.map((prod) => {
+          const esMiProducto = prod.vendedorUid === user.uid;
+          // Un usuario puede borrar el producto si es el dueño O si es el Administrador
+          const puedeEliminar = esMiProducto || ES_ADMIN;
+
+          return (
+            <div key={prod.id} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '15px', backgroundColor: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+              <div>
+                {prod.imagenUrl ? (
+                  <img 
+                    src={prod.imagenUrl} 
+                    alt={prod.titulo} 
+                    style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px' }} 
+                  />
+                ) : (
+                  <div style={{ width: '100%', height: '120px', backgroundColor: '#e9ecef', borderRadius: '6px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontSize: '12px' }}>
+                    Sin imagen
+                  </div>
+                )}
+                <h4 style={{ margin: '0 0 10px 0' }}>{prod.titulo}</h4>
+                <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#0056b3', margin: '0 0 10px 0' }}>
+                  ${prod.precio ? prod.precio.toLocaleString('es-CL') : prod.precio}
+                </p>
+                <p style={{ fontSize: '14px', color: '#555', margin: '0 0 10px 0' }}>{prod.descripcion}</p>
+                <p style={{ fontSize: '12px', color: '#888' }}>Vendedor: {prod.vendedorEmail ? prod.vendedorEmail.split('@')[0] : ''}</p>
+              </div>
+              
+              <div>
+                <button 
+                  onClick={() => setProductoSeleccionado(prod)}
+                  style={{ width: '100%', padding: '8px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}
+                >
+                  Contactar / Chat
+                </button>
+
+                {/* Mostrar botón de eliminar si es dueño o Admin */}
+                {puedeEliminar && (
+                  <button 
+                    onClick={() => handleEliminar(prod.id)}
+                    style={{ 
+                      width: '100%', 
+                      padding: '6px', 
+                      backgroundColor: ES_ADMIN && !esMiProducto ? '#dc3545' : '#dc3545', 
+                      color: 'white', 
+                      border: 'none', 
+                      borderRadius: '4px', 
+                      cursor: 'pointer', 
+                      marginTop: '5px', 
+                      fontSize: '12px',
+                      fontWeight: ES_ADMIN ? 'bold' : 'normal'
+                    }}
+                  >
+                    {ES_ADMIN && !esMiProducto ? 'Eliminar (Como Admin)' : 'Eliminar publicación'}
+                  </button>
+                )}
+              </div>
             </div>
-            
-            <button 
-              onClick={() => setProductoSeleccionado(prod)}
-              style={{ width: '100%', padding: '8px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}
-            >
-              Contactar / Chat
-            </button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
