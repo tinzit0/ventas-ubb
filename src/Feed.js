@@ -8,6 +8,7 @@ function Feed({ user }) {
   const [titulo, setTitulo] = useState('');
   const [precio, setPrecio] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [imagenUrl, setImagenUrl] = useState('');
   const [cargando, setCargando] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
 
@@ -39,6 +40,7 @@ function Feed({ user }) {
         titulo,
         precio: Number(precio),
         descripcion,
+        imagenUrl: imagenUrl.trim(),
         vendedorEmail: user.email,
         vendedorUid: user.uid,
         creadoEn: serverTimestamp()
@@ -47,7 +49,8 @@ function Feed({ user }) {
       setTitulo('');
       setPrecio('');
       setDescripcion('');
-      alert('¡Producto publicado!');
+      setImagenUrl('');
+      alert('¡Producto publicado con éxito!');
       obtenerProductos();
     } catch (error) {
       alert('Error al publicar: ' + error.message);
@@ -55,7 +58,6 @@ function Feed({ user }) {
     setCargando(false);
   };
 
-  // Si hay un producto seleccionado, mostramos la pantalla de Chat
   if (productoSeleccionado) {
     return (
       <Chat 
@@ -103,6 +105,13 @@ function Feed({ user }) {
             onChange={(e) => setDescripcion(e.target.value)} 
             style={{ width: '100%', padding: '8px', marginBottom: '10px', boxSizing: 'border-box', height: '60px' }}
           />
+          <input 
+            type="url" 
+            placeholder="URL de la imagen (opcional, ej: https://i.imgur.com/...)" 
+            value={imagenUrl} 
+            onChange={(e) => setImagenUrl(e.target.value)} 
+            style={{ width: '100%', padding: '8px', marginBottom: '10px', boxSizing: 'border-box' }}
+          />
           <button type="submit" disabled={cargando} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
             {cargando ? 'Publicando...' : 'Publicar'}
           </button>
@@ -112,13 +121,28 @@ function Feed({ user }) {
       <h3>Productos Disponibles</h3>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
         {productos.map((prod) => (
-          <div key={prod.id} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '15px', backgroundColor: 'white' }}>
-            <h4 style={{ margin: '0 0 10px 0' }}>{prod.titulo}</h4>
-            <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#0056b3', margin: '0 0 10px 0' }}>
-              ${prod.precio ? prod.precio.toLocaleString('es-CL') : prod.precio}
-            </p>
-            <p style={{ fontSize: '14px', color: '#555', margin: '0 0 10px 0' }}>{prod.descripcion}</p>
-            <p style={{ fontSize: '12px', color: '#888' }}>Vendedor: {prod.vendedorEmail ? prod.vendedorEmail.split('@')[0] : ''}</p>
+          <div key={prod.id} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '15px', backgroundColor: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              {prod.imagenUrl ? (
+                <img 
+                  src={prod.imagenUrl} 
+                  alt={prod.titulo} 
+                  style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px' }} 
+                  onError={(e) => { e.target.style.display = 'none'; }} // Oculta la imágen si el enlace está roto
+                />
+              ) : (
+                <div style={{ width: '100%', height: '120px', backgroundColor: '#e9ecef', borderRadius: '6px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontSize: '12px' }}>
+                  Sin imagen
+                </div>
+              )}
+              <h4 style={{ margin: '0 0 10px 0' }}>{prod.titulo}</h4>
+              <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#0056b3', margin: '0 0 10px 0' }}>
+                ${prod.precio ? prod.precio.toLocaleString('es-CL') : prod.precio}
+              </p>
+              <p style={{ fontSize: '14px', color: '#555', margin: '0 0 10px 0' }}>{prod.descripcion}</p>
+              <p style={{ fontSize: '12px', color: '#888' }}>Vendedor: {prod.vendedorEmail ? prod.vendedorEmail.split('@')[0] : ''}</p>
+            </div>
+            
             <button 
               onClick={() => setProductoSeleccionado(prod)}
               style={{ width: '100%', padding: '8px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}
