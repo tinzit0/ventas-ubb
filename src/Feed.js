@@ -236,13 +236,20 @@ function Feed({ user }) {
               style={{ display: 'none' }}
             />
 
-            {/* Vista previa de la foto seleccionada */}
+            {/* Vista previa de la foto seleccionada (Se muestra completa) */}
             {previewImagen && (
               <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
                 <img 
                   src={previewImagen} 
                   alt="Vista previa" 
-                  style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #ccc' }}
+                  style={{ 
+                    width: '120px', 
+                    height: '120px', 
+                    objectFit: 'contain', 
+                    backgroundColor: '#f0f0f0', 
+                    borderRadius: '6px', 
+                    border: '1px solid #ccc' 
+                  }}
                 />
                 <button
                   type="button"
@@ -285,11 +292,13 @@ function Feed({ user }) {
             <div key={prod.id} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '15px', backgroundColor: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
               <div>
                 {prod.imagenUrl ? (
-                  <img 
-                    src={prod.imagenUrl} 
-                    alt={prod.titulo} 
-                    style={{ width: '100%', height: '160px', objectFit: 'cover', borderRadius: '6px', marginBottom: '10px' }} 
-                  />
+                  <div style={{ width: '100%', height: '180px', backgroundColor: '#f0f0f0', borderRadius: '6px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                    <img 
+                      src={prod.imagenUrl} 
+                      alt={prod.titulo} 
+                      style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+                    />
+                  </div>
                 ) : (
                   <div style={{ width: '100%', height: '120px', backgroundColor: '#e9ecef', borderRadius: '6px', marginBottom: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontSize: '12px' }}>
                     Sin imagen
