@@ -21,7 +21,9 @@ function Feed({ user }) {
   const [titulo, setTitulo] = useState('');
   const [precio, setPrecio] = useState('');
   const [descripcion, setDescripcion] = useState('');
+  const [categoria, setCategoria] = useState('Artículos / Tecnología');
   const [busqueda, setBusqueda] = useState('');
+  const [categoriaFiltro, setCategoriaFiltro] = useState('Todas');
   
   // Filtro de ocultar vendidos
   const [ocultarVendidos, setOcultarVendidos] = useState(false);
@@ -146,6 +148,7 @@ function Feed({ user }) {
     setTitulo('');
     setPrecio('');
     setDescripcion('');
+    setCategoria('Artículos / Tecnología');
     setArchivosImagenes([]);
     setPreviewsImagenes([]);
     if (cameraInputRef.current) cameraInputRef.current.value = '';
@@ -181,6 +184,7 @@ function Feed({ user }) {
         titulo,
         precio: Number(precio),
         descripcion,
+        categoria,
         imagenesUrls,
         imagenUrl: imagenesUrls[0] || '',
         vendedorEmail: user.email,
@@ -236,7 +240,8 @@ function Feed({ user }) {
       await updateDoc(productoRef, {
         titulo: productoAEditar.titulo,
         precio: Number(productoAEditar.precio),
-        descripcion: productoAEditar.descripcion
+        descripcion: productoAEditar.descripcion,
+        categoria: productoAEditar.categoria || 'Otros'
       });
       alert('¡Publicación actualizada con éxito!');
       setProductoAEditar(null);
@@ -246,12 +251,13 @@ function Feed({ user }) {
     }
   };
 
-  // Filtrado de productos por búsqueda y por estado "ocultar vendidos"
+  // Filtrado de productos por texto, categoría y estado (vendido)
   const productosFiltrados = productos.filter((p) => {
     const texto = (p.titulo + ' ' + (p.descripcion || '')).toLowerCase();
     const coincideTexto = texto.includes(busqueda.toLowerCase());
     const coincideEstado = ocultarVendidos ? p.vendido !== true : true;
-    return coincideTexto && coincideEstado;
+    const coincideCategoria = categoriaFiltro === 'Todas' ? true : (p.categoria === categoriaFiltro);
+    return coincideTexto && coincideEstado && coincideCategoria;
   });
 
   const productosConChats = productos.filter(p => misChatsProdIds.includes(p.id) || p.vendedorUid === user.uid);
@@ -377,20 +383,36 @@ function Feed({ user }) {
         <form onSubmit={handlePublicar}>
           <input 
             type="text" 
-            placeholder="¿Qué vendes? (ej: Libro Cálculo 1, Teclado, etc.)" 
+            placeholder="¿Qué vendes? (ej: Empanadas, Libro Cálculo, Teclado, etc.)" 
             value={titulo} 
             onChange={(e) => setTitulo(e.target.value)} 
             required 
             style={{ width: '100%', padding: '8px', marginBottom: '10px', boxSizing: 'border-box' }}
           />
-          <input 
-            type="number" 
-            placeholder="Precio en CLP ($)" 
-            value={precio} 
-            onChange={(e) => setPrecio(e.target.value)} 
-            required 
-            style={{ width: '100%', padding: '8px', marginBottom: '10px', boxSizing: 'border-box' }}
-          />
+
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '10px', flexWrap: 'wrap' }}>
+            <input 
+              type="number" 
+              placeholder="Precio en CLP ($)" 
+              value={precio} 
+              onChange={(e) => setPrecio(e.target.value)} 
+              required 
+              style={{ flex: 1, minWidth: '150px', padding: '8px', boxSizing: 'border-box' }}
+            />
+
+            <select
+              value={categoria}
+              onChange={(e) => setCategoria(e.target.value)}
+              style={{ flex: 1, minWidth: '150px', padding: '8px', boxSizing: 'border-box', borderRadius: '4px', border: '1px solid #ccc' }}
+            >
+              <option value="Comida / Snacks">🍔 Comida / Snacks</option>
+              <option value="Artículos / Tecnología">💻 Artículos / Tecnología</option>
+              <option value="Libros / Apuntes">📚 Libros / Apuntes</option>
+              <option value="Ropa / Accesorios">👕 Ropa / Accesorios</option>
+              <option value="Otros">🛠️ Otros</option>
+            </select>
+          </div>
+
           <textarea 
             placeholder="Descripción corta o lugar de entrega en el campus..." 
             value={descripcion} 
@@ -500,13 +522,27 @@ function Feed({ user }) {
         </form>
       </div>
 
-      {/* Lista de Productos con Buscador y Filtro Ocultar Vendidos */}
+      {/* Lista de Productos con Buscador y Filtro por Categoría / Estado */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
         <h3 style={{ margin: 0 }}>Productos Disponibles</h3>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Filtro Categoría */}
+          <select 
+            value={categoriaFiltro} 
+            onChange={(e) => setCategoriaFiltro(e.target.value)} 
+            style={{ padding: '6px 10px', borderRadius: '15px', border: '1px solid #ccc', fontSize: '12px' }}
+          >
+            <option value="Todas">📁 Todas las Categorías</option>
+            <option value="Comida / Snacks">🍔 Comida / Snacks</option>
+            <option value="Artículos / Tecnología">💻 Artículos / Tecnología</option>
+            <option value="Libros / Apuntes">📚 Libros / Apuntes</option>
+            <option value="Ropa / Accesorios">👕 Ropa / Accesorios</option>
+            <option value="Otros">🛠️ Otros</option>
+          </select>
+
           {/* Checkbox para Ocultar Vendidos */}
-          <label style={{ fontSize: '13px', cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: '#e9ecef', padding: '6px 10px', borderRadius: '15px' }}>
+          <label style={{ fontSize: '12px', cursor: 'pointer', userSelect: 'none', display: 'flex', alignItems: 'center', gap: '4px', backgroundColor: '#e9ecef', padding: '6px 10px', borderRadius: '15px' }}>
             <input 
               type="checkbox" 
               checked={ocultarVendidos} 
@@ -518,10 +554,10 @@ function Feed({ user }) {
 
           <input 
             type="text" 
-            placeholder="🔍 Buscar producto..." 
+            placeholder="🔍 Buscar..." 
             value={busqueda} 
             onChange={(e) => setBusqueda(e.target.value)} 
-            style={{ padding: '8px 12px', borderRadius: '20px', border: '1px solid #ccc', minWidth: '160px' }}
+            style={{ padding: '6px 12px', borderRadius: '15px', border: '1px solid #ccc', maxWidth: '140px' }}
           />
         </div>
       </div>
@@ -579,6 +615,21 @@ function Feed({ user }) {
                   required 
                   style={{ width: '100%', padding: '8px', boxSizing: 'border-box', marginTop: '4px' }}
                 />
+              </div>
+
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Categoría:</label>
+                <select
+                  value={productoAEditar.categoria || 'Otros'}
+                  onChange={(e) => setProductoAEditar({ ...productoAEditar, categoria: e.target.value })}
+                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box', marginTop: '4px', borderRadius: '4px', border: '1px solid #ccc' }}
+                >
+                  <option value="Comida / Snacks">🍔 Comida / Snacks</option>
+                  <option value="Artículos / Tecnología">💻 Artículos / Tecnología</option>
+                  <option value="Libros / Apuntes">📚 Libros / Apuntes</option>
+                  <option value="Ropa / Accesorios">👕 Ropa / Accesorios</option>
+                  <option value="Otros">🛠️ Otros</option>
+                </select>
               </div>
 
               <div style={{ marginBottom: '15px' }}>
@@ -650,6 +701,22 @@ function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeModificar, onEliminar, on
               onClick={() => onAbrirModal(indiceFoto)}
               style={{ width: '100%', height: '100%', objectFit: 'contain', filter: estaVendido ? 'grayscale(30%)' : 'none' }} 
             />
+
+            {/* Etiqueta de Categoría */}
+            {prod.categoria && (
+              <span style={{
+                position: 'absolute',
+                bottom: '8px',
+                left: '8px',
+                backgroundColor: 'rgba(0,0,0,0.7)',
+                color: 'white',
+                padding: '2px 8px',
+                borderRadius: '10px',
+                fontSize: '11px'
+              }}>
+                {prod.categoria}
+              </span>
+            )}
 
             {estaVendido && (
               <div style={{
