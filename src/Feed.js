@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from './firebase';
 import { collection, addDoc, getDocs, serverTimestamp, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
 import Chat from './Chat';
@@ -9,13 +9,17 @@ function Feed({ user }) {
   const [precio, setPrecio] = useState('');
   const [descripcion, setDescripcion] = useState('');
   const [archivoImagen, setArchivoImagen] = useState(null);
+  const [previewImagen, setPreviewImagen] = useState(null);
   const [cargando, setCargando] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+
+  // Referencias para accionar la cámara y la galería
+  const cameraInputRef = useRef(null);
+  const galleryInputRef = useRef(null);
 
   const IMGBB_API_KEY = '2447ec54156a52c2b609cc1ea5d177d8';
 
   // DEFINICIÓN DE ADMINISTRADOR:
-  // Tu correo institucional actúa como el administrador general de la app
   const ES_ADMIN = user.email === 'martin.bustamante2201@alumnos.ubiobio.cl';
 
   const obtenerProductos = async () => {
@@ -35,6 +39,20 @@ function Feed({ user }) {
   useEffect(() => {
     obtenerProductos();
   }, []);
+
+  const handleSeleccionarImagen = (file) => {
+    if (file) {
+      setArchivoImagen(file);
+      setPreviewImagen(URL.createObjectURL(file));
+    }
+  };
+
+  const limpiarImagen = () => {
+    setArchivoImagen(null);
+    setPreviewImagen(null);
+    if (cameraInputRef.current) cameraInputRef.current.value = '';
+    if (galleryInputRef.current) galleryInputRef.current.value = '';
+  };
 
   const handlePublicar = async (e) => {
     e.preventDefault();
@@ -72,7 +90,7 @@ function Feed({ user }) {
       setTitulo('');
       setPrecio('');
       setDescripcion('');
-      setArchivoImagen(null);
+      limpiarImagen();
       alert('¡Producto publicado con éxito!');
       obtenerProductos();
     } catch (error) {
@@ -155,17 +173,102 @@ function Feed({ user }) {
             style={{ width: '100%', padding: '8px', marginBottom: '10px', boxSizing: 'border-box', height: '60px' }}
           />
           
+          {/* Opciones para Adjuntar / Tomar Foto */}
           <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', fontSize: '14px', marginBottom: '5px', fontWeight: 'bold' }}>Adjuntar / Tomar Foto:</label>
+            <label style={{ display: 'block', fontSize: '14px', marginBottom: '8px', fontWeight: 'bold' }}>
+              Foto del Producto:
+            </label>
+            
+            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+              <button
+                type="button"
+                onClick={() => cameraInputRef.current && cameraInputRef.current.click()}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  backgroundColor: '#0056b3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '13px'
+                }}
+              >
+                📷 Tomar Foto
+              </button>
+
+              <button
+                type="button"
+                onClick={() => galleryInputRef.current && galleryInputRef.current.click()}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  backgroundColor: '#6c757d',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '13px'
+                }}
+              >
+                🖼️ Subir de Galería
+              </button>
+            </div>
+
+            {/* Input oculto para la CÁMARA */}
             <input 
               type="file" 
               accept="image/*" 
-              onChange={(e) => setArchivoImagen(e.target.files[0])}
-              style={{ width: '100%' }}
+              capture="environment"
+              ref={cameraInputRef}
+              onChange={(e) => handleSeleccionarImagen(e.target.files[0])}
+              style={{ display: 'none' }}
             />
+
+            {/* Input oculto para la GALERÍA */}
+            <input 
+              type="file" 
+              accept="image/*" 
+              ref={galleryInputRef}
+              onChange={(e) => handleSeleccionarImagen(e.target.files[0])}
+              style={{ display: 'none' }}
+            />
+
+            {/* Vista previa de la foto seleccionada */}
+            {previewImagen && (
+              <div style={{ marginTop: '10px', position: 'relative', display: 'inline-block' }}>
+                <img 
+                  src={previewImagen} 
+                  alt="Vista previa" 
+                  style={{ width: '100px', height: '100px', objectFit: 'cover', borderRadius: '6px', border: '1px solid #ccc' }}
+                />
+                <button
+                  type="button"
+                  onClick={limpiarImagen}
+                  style={{
+                    position: 'absolute',
+                    top: '-8px',
+                    right: '-8px',
+                    backgroundColor: '#dc3545',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '50%',
+                    width: '22px',
+                    height: '22px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
 
-          <button type="submit" disabled={cargando} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+          <button type="submit" disabled={cargando} style={{ padding: '10px 20px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', width: '100%', fontWeight: 'bold' }}>
             {cargando ? 'Subiendo foto y publicando...' : 'Publicar'}
           </button>
         </form>
@@ -176,7 +279,6 @@ function Feed({ user }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
         {productos.map((prod) => {
           const esMiProducto = prod.vendedorUid === user.uid;
-          // Un usuario puede borrar el producto si es el dueño O si es el Administrador
           const puedeEliminar = esMiProducto || ES_ADMIN;
 
           return (
@@ -209,14 +311,13 @@ function Feed({ user }) {
                   Contactar / Chat
                 </button>
 
-                {/* Mostrar botón de eliminar si es dueño o Admin */}
                 {puedeEliminar && (
                   <button 
                     onClick={() => handleEliminar(prod.id)}
                     style={{ 
                       width: '100%', 
                       padding: '6px', 
-                      backgroundColor: ES_ADMIN && !esMiProducto ? '#dc3545' : '#dc3545', 
+                      backgroundColor: '#dc3545', 
                       color: 'white', 
                       border: 'none', 
                       borderRadius: '4px', 
