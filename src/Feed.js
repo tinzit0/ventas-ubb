@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from './firebase';
-import { collection, addDoc, getDocs, serverTimestamp, query, orderBy, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, getDocs, serverTimestamp, query, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { updatePassword } from 'firebase/auth';
 import Chat from './Chat';
 
@@ -120,9 +120,10 @@ function Feed({ user }) {
         precio: Number(precio),
         descripcion,
         imagenesUrls, // Guardamos un array de URLs
-        imagenUrl: imagenesUrls[0] || '', // Mantener compatibilidad con publicaciones antiguas
+        imagenUrl: imagenesUrls[0] || '', // Mantener compatibilidad
         vendedorEmail: user.email,
         vendedorUid: user.uid,
+        vendido: false, // Por defecto disponible
         creadoEn: serverTimestamp()
       });
 
@@ -149,6 +150,19 @@ function Feed({ user }) {
       obtenerProductos();
     } catch (error) {
       alert('Error al eliminar: ' + error.message);
+    }
+  };
+
+  // Cambiar estado entre Vendido y Disponible
+  const handleToggleVendido = async (productoId, estadoActual) => {
+    try {
+      const productoRef = doc(db, 'productos', productoId);
+      await updateDoc(productoRef, {
+        vendido: !estadoActual
+      });
+      obtenerProductos();
+    } catch (error) {
+      alert('Error al cambiar el estado del producto: ' + error.message);
     }
   };
 
@@ -345,9 +359,9 @@ function Feed({ user }) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '15px' }}>
         {productosFiltrados.map((prod) => {
           const esMiProducto = prod.vendedorUid === user.uid;
-          const puedeEliminar = esMiProducto || ES_ADMIN;
+          const puedeModificar = esMiProducto || ES_ADMIN;
 
-          // Normalizar fotos (apoyo a publicaciones antiguas y nuevas)
+          // Normalizar fotos
           const fotos = prod.imagenesUrls && prod.imagenesUrls.length > 0 
             ? prod.imagenesUrls 
             : (prod.imagenUrl ? [prod.imagenUrl] : []);
@@ -359,8 +373,9 @@ function Feed({ user }) {
               fotos={fotos} 
               user={user} 
               ES_ADMIN={ES_ADMIN} 
-              puedeEliminar={puedeEliminar} 
+              puedeModificar={puedeModificar} 
               onEliminar={handleEliminar}
+              onToggleVendido={handleToggleVendido}
               onChat={() => setProductoSeleccionado(prod)}
               onAbrirModal={(indice) => setModalGaleria({ abierto: true, fotos, indice })}
             />
@@ -379,8 +394,8 @@ function Feed({ user }) {
   );
 }
 
-// Componente para la Tarjeta de cada Producto con Slider Integrado
-function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeEliminar, onEliminar, onChat, onAbrirModal }) {
+// Componente para la Tarjeta de cada Producto con estado de VENDIDO y Slider
+function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeModificar, onEliminar, onToggleVendido, onChat, onAbrirModal }) {
   const [indiceFoto, setIndiceFoto] = useState(0);
 
   const anteriorFoto = (e) => {
@@ -393,8 +408,19 @@ function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeEliminar, onEliminar, onC
     setIndiceFoto(prev => (prev === fotos.length - 1 ? 0 : prev + 1));
   };
 
+  const estaVendido = prod.vendido === true;
+
   return (
-    <div style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '15px', backgroundColor: 'white', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+    <div style={{ 
+      border: estaVendido ? '1px solid #e0e0e0' : '1px solid #ccc', 
+      borderRadius: '8px', 
+      padding: '15px', 
+      backgroundColor: estaVendido ? '#fdfdfd' : 'white', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      justify: 'space-between',
+      opacity: estaVendido ? 0.85 : 1
+    }}>
       <div>
         {fotos.length > 0 ? (
           <div style={{ position: 'relative', width: '100%', height: '180px', backgroundColor: '#f0f0f0', borderRadius: '6px', marginBottom: '10px', overflow: 'hidden', cursor: 'pointer' }}>
@@ -402,8 +428,27 @@ function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeEliminar, onEliminar, onC
               src={fotos[indiceFoto]} 
               alt={prod.titulo} 
               onClick={() => onAbrirModal(indiceFoto)}
-              style={{ width: '100%', height: '100%', objectFit: 'contain' }} 
+              style={{ width: '100%', height: '100%', objectFit: 'contain', filter: estaVendido ? 'grayscale(30%)' : 'none' }} 
             />
+
+            {/* Badge de VENDIDO sobre la foto */}
+            {estaVendido && (
+              <div style={{
+                position: 'absolute',
+                top: '10px',
+                left: '10px',
+                backgroundColor: '#dc3545',
+                color: 'white',
+                padding: '4px 10px',
+                borderRadius: '4px',
+                fontWeight: 'bold',
+                fontSize: '12px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+                letterSpacing: '1px'
+              }}>
+                🏷️ VENDIDO
+              </div>
+            )}
 
             {/* Controles para cambiar de foto si hay más de 1 */}
             {fotos.length > 1 && (
@@ -437,8 +482,8 @@ function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeEliminar, onEliminar, onC
           </div>
         )}
 
-        <h4 style={{ margin: '0 0 10px 0' }}>{prod.titulo}</h4>
-        <p style={{ fontSize: '18px', fontWeight: 'bold', color: '#0056b3', margin: '0 0 10px 0' }}>
+        <h4 style={{ margin: '0 0 10px 0', textDecoration: estaVendido ? 'line-through' : 'none', color: estaVendido ? '#666' : '#000' }}>{prod.titulo}</h4>
+        <p style={{ fontSize: '18px', fontWeight: 'bold', color: estaVendido ? '#6c757d' : '#0056b3', margin: '0 0 10px 0' }}>
           ${prod.precio ? prod.precio.toLocaleString('es-CL') : prod.precio}
         </p>
         <p style={{ fontSize: '14px', color: '#555', margin: '0 0 10px 0' }}>{prod.descripcion}</p>
@@ -448,29 +493,58 @@ function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeEliminar, onEliminar, onC
       <div>
         <button 
           onClick={onChat}
-          style={{ width: '100%', padding: '8px', backgroundColor: '#0056b3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}
+          disabled={estaVendido}
+          style={{ 
+            width: '100%', 
+            padding: '8px', 
+            backgroundColor: estaVendido ? '#6c757d' : '#0056b3', 
+            color: 'white', 
+            border: 'none', 
+            borderRadius: '4px', 
+            cursor: estaVendido ? 'not-allowed' : 'pointer', 
+            marginTop: '10px',
+            fontWeight: 'bold'
+          }}
         >
-          Contactar / Chat
+          {estaVendido ? 'Producto Vendido' : 'Contactar / Chat'}
         </button>
 
-        {puedeEliminar && (
-          <button 
-            onClick={() => onEliminar(prod.id)}
-            style={{ 
-              width: '100%', 
-              padding: '6px', 
-              backgroundColor: '#dc3545', 
-              color: 'white', 
-              border: 'none', 
-              borderRadius: '4px', 
-              cursor: 'pointer', 
-              marginTop: '5px', 
-              fontSize: '12px',
-              fontWeight: ES_ADMIN ? 'bold' : 'normal'
-            }}
-          >
-            {ES_ADMIN && !prod.esMiProducto ? 'Eliminar (Como Admin)' : 'Eliminar publicación'}
-          </button>
+        {puedeModificar && (
+          <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+            <button 
+              onClick={() => onToggleVendido(prod.id, estaVendido)}
+              style={{ 
+                flex: 1, 
+                padding: '6px', 
+                backgroundColor: estaVendido ? '#28a745' : '#ffc107', 
+                color: estaVendido ? 'white' : '#000', 
+                border: 'none', 
+                borderRadius: '4px', 
+                cursor: 'pointer', 
+                fontSize: '11px',
+                fontWeight: 'bold'
+              }}
+            >
+              {estaVendido ? 'Reactivar' : 'Marcar Vendido'}
+            </button>
+
+            <button 
+              onClick={() => onEliminar(prod.id)}
+              style={{ 
+                flex: 1, 
+                padding: '6px', 
+                backgroundColor: '#dc3545', 
+                color: 'white', 
+                border: 'none', 
+                borderRadius: '4px', 
+                cursor: 'pointer', 
+                fontSize: '11px',
+                fontWeight: ES_ADMIN ? 'bold' : 'normal'
+              }}
+            >
+              Eliminar
+            </button>
+          </div>
         )}
       </div>
     </div>
@@ -517,7 +591,6 @@ function VisorFotosModal({ modalGaleria, setModalGaleria }) {
       }}
       onClick={cerrar}
     >
-      {/* Botón cerrar más grande y visible en móviles */}
       <button 
         onClick={cerrar}
         style={{
@@ -542,7 +615,6 @@ function VisorFotosModal({ modalGaleria, setModalGaleria }) {
         ✕
       </button>
 
-      {/* Contenedor principal de la imagen + Controles */}
       <div 
         style={{ 
           position: 'relative', 
@@ -566,7 +638,6 @@ function VisorFotosModal({ modalGaleria, setModalGaleria }) {
           }} 
         />
 
-        {/* Flechas integradas con margen interno cómodo para pantallas táctiles */}
         {fotos.length > 1 && (
           <>
             <button 
@@ -622,7 +693,6 @@ function VisorFotosModal({ modalGaleria, setModalGaleria }) {
         )}
       </div>
 
-      {/* Contador de fotos inferior */}
       {fotos.length > 1 && (
         <div style={{ color: 'white', marginTop: '15px', fontSize: '14px', fontWeight: 'bold' }}>
           {indice + 1} / {fotos.length}
