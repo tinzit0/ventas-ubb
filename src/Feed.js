@@ -74,7 +74,6 @@ function Feed({ user }) {
   useEffect(() => {
     if (!user) return;
 
-    // Mensajes dirigidos al usuario que no se han leído
     const qMensajesNoLeidos = query(
       collection(db, 'mensajes'),
       where('paraUid', '==', user.uid),
@@ -87,7 +86,6 @@ function Feed({ user }) {
       console.log("Error consultando no leídos:", error.message);
     });
 
-    // Detectar en qué chats ha participado el usuario (como remitente o destinatario)
     const qMisMensajes = query(
       collection(db, 'mensajes'),
       where('paraUid', '==', user.uid)
@@ -245,13 +243,11 @@ function Feed({ user }) {
     }
   };
 
-  // Filtrado de productos por título o descripción
   const productosFiltrados = productos.filter((p) => {
     const texto = (p.titulo + ' ' + (p.descripcion || '')).toLowerCase();
     return texto.includes(busqueda.toLowerCase());
   });
 
-  // Lista de productos con los que el usuario tiene o ha publicado chats
   const productosConChats = productos.filter(p => misChatsProdIds.includes(p.id) || p.vendedorUid === user.uid);
 
   if (productoSeleccionado) {
@@ -265,20 +261,24 @@ function Feed({ user }) {
   }
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif' }}>
-      {/* Barra superior con selector de chats, notificaciones y perfil */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0056b3', paddingBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
-        <div>
-          <h2 style={{ margin: 0, display: 'inline-block', marginRight: '10px' }}>Mercado UBB</h2>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '15px', fontFamily: 'sans-serif' }}>
+      {/* Barra superior responsiva */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderBottom: '2px solid #0056b3', paddingBottom: '12px' }}>
+        
+        {/* Fila 1: Título y Rol */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ margin: 0 }}>Mercado UBB</h2>
           {ES_ADMIN && (
-            <span style={{ backgroundColor: '#ffc107', color: '#000', padding: '2px 8px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold' }}>
-              Modo Admin Active
+            <span style={{ backgroundColor: '#ffc107', color: '#000', padding: '2px 8px', borderRadius: '12px', fontSize: '11px', fontWeight: 'bold' }}>
+              Modo Admin
             </span>
           )}
         </div>
-        
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', position: 'relative' }}>
-          {/* Desplegable de Mis Chats */}
+
+        {/* Fila 2: Mis Chats + Usuario + Botones */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px' }}>
+          
+          {/* Contenedor del Botón Mis Chats y su Menú Desplegable Adaptativo */}
           <div style={{ position: 'relative' }}>
             <button 
               onClick={() => setMostrarMenuChats(!mostrarMenuChats)}
@@ -290,10 +290,7 @@ function Feed({ user }) {
                 borderRadius: '4px', 
                 cursor: 'pointer', 
                 fontSize: '13px', 
-                fontWeight: 'bold',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
+                fontWeight: 'bold'
               }}
             >
               💬 Mis Chats {mensajesNoLeidos > 0 && `(${mensajesNoLeidos})`} ▾
@@ -303,14 +300,15 @@ function Feed({ user }) {
               <div style={{
                 position: 'absolute',
                 top: '100%',
-                right: 0,
+                left: 0,
                 marginTop: '5px',
                 backgroundColor: 'white',
                 border: '1px solid #ccc',
                 borderRadius: '6px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                width: '260px',
-                maxHeight: '300px',
+                boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+                width: '280px',
+                maxWidth: '85vw',
+                maxHeight: '280px',
                 overflowY: 'auto',
                 zIndex: 1000
               }}>
@@ -352,20 +350,22 @@ function Feed({ user }) {
             )}
           </div>
 
-          <span style={{ fontSize: '13px', color: '#555' }}>{user.email}</span>
+          {/* Opciones de Perfil y Sesión */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <button 
+              onClick={cambiarClave} 
+              style={{ padding: '5px 8px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
+            >
+              🔒 Clave
+            </button>
+            <button 
+              onClick={() => auth.signOut()} 
+              style={{ padding: '5px 8px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}
+            >
+              Cerrar Sesión
+            </button>
+          </div>
 
-          <button 
-            onClick={cambiarClave} 
-            style={{ padding: '5px 10px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px', fontWeight: 'bold' }}
-          >
-            🔒 Cambiar Clave
-          </button>
-          <button 
-            onClick={() => auth.signOut()} 
-            style={{ padding: '5px 10px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' }}
-          >
-            Cerrar Sesión
-          </button>
         </div>
       </div>
 
@@ -507,7 +507,7 @@ function Feed({ user }) {
           placeholder="🔍 Buscar producto..." 
           value={busqueda} 
           onChange={(e) => setBusqueda(e.target.value)} 
-          style={{ padding: '8px 12px', borderRadius: '20px', border: '1px solid #ccc', minWidth: '200px' }}
+          style={{ padding: '8px 12px', borderRadius: '20px', border: '1px solid #ccc', minWidth: '180px' }}
         />
       </div>
 
@@ -577,7 +577,7 @@ function Feed({ user }) {
 
               <div style={{ display: 'flex', gap: '10px' }}>
                 <button type="submit" style={{ flex: 1, padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
-                  Guardar Cambios
+                  Guardar
                 </button>
                 <button type="button" onClick={() => setProductoAEditar(null)} style={{ flex: 1, padding: '10px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                   Cancelar
