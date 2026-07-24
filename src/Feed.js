@@ -1,6 +1,18 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from './firebase';
-import { collection, addDoc, getDocs, serverTimestamp, query, orderBy, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { 
+  collection, 
+  addDoc, 
+  getDocs, 
+  serverTimestamp, 
+  query, 
+  orderBy, 
+  deleteDoc, 
+  doc, 
+  updateDoc, 
+  onSnapshot, 
+  where 
+} from 'firebase/firestore';
 import { updatePassword } from 'firebase/auth';
 import Chat from './Chat';
 
@@ -17,6 +29,12 @@ function Feed({ user }) {
   
   const [cargando, setCargando] = useState(false);
   const [productoSeleccionado, setProductoSeleccionado] = useState(null);
+
+  // Estado para la edición de producto (modal)
+  const [productoAEditar, setProductoAEditar] = useState(null);
+
+  // Contador de mensajes no leídos
+  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
 
   // Estado para el visor / modal de fotos a pantalla completa
   const [modalGaleria, setModalGaleria] = useState({ abierto: false, fotos: [], indice: 0 });
@@ -35,8 +53,8 @@ function Feed({ user }) {
       const q = query(collection(db, 'productos'), orderBy('creadoEn', 'desc'));
       const querySnapshot = await getDocs(q);
       const docs = [];
-      querySnapshot.forEach((doc) => {
-        docs.push({ id: doc.id, ...doc.data() });
+      querySnapshot.forEach((docSnap) => {
+        docs.push({ id: docSnap.id, ...docSnap.data() });
       });
       setProductos(docs);
     } catch (error) {
@@ -47,6 +65,25 @@ function Feed({ user }) {
   useEffect(() => {
     obtenerProductos();
   }, []);
+
+  // Listener para contar mensajes no leídos en tiempo real
+  useEffect(() => {
+    if (!user) return;
+
+    const qMensajes = query(
+      collection(db, 'mensajes'),
+      where('paraUid', '==', user.uid),
+      where('leido', '==', false)
+    );
+
+    const unsubscribe = onSnapshot(qMensajes, (snapshot) => {
+      setMensajesNoLeidos(snapshot.size);
+    }, (error) => {
+      console.log("Notificaciones no leídas:", error.message);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
 
   const cambiarClave = async () => {
     const nuevaClave = window.prompt("Ingresa tu nueva contraseña (mínimo 6 caracteres):");
@@ -119,11 +156,11 @@ function Feed({ user }) {
         titulo,
         precio: Number(precio),
         descripcion,
-        imagenesUrls, // Guardamos un array de URLs
-        imagenUrl: imagenesUrls[0] || '', // Mantener compatibilidad
+        imagenesUrls,
+        imagenUrl: imagenesUrls[0] || '',
         vendedorEmail: user.email,
         vendedorUid: user.uid,
-        vendido: false, // Por defecto disponible
+        vendido: false,
         creadoEn: serverTimestamp()
       });
 
@@ -153,7 +190,6 @@ function Feed({ user }) {
     }
   };
 
-  // Cambiar estado entre Vendido y Disponible
   const handleToggleVendido = async (productoId, estadoActual) => {
     try {
       const productoRef = doc(db, 'productos', productoId);
@@ -163,6 +199,25 @@ function Feed({ user }) {
       obtenerProductos();
     } catch (error) {
       alert('Error al cambiar el estado del producto: ' + error.message);
+    }
+  };
+
+  const handleGuardarEdicion = async (e) => {
+    e.preventDefault();
+    if (!productoAEditar) return;
+
+    try {
+      const productoRef = doc(db, 'productos', productoAEditar.id);
+      await updateDoc(productoRef, {
+        titulo: productoAEditar.titulo,
+        precio: Number(productoAEditar.precio),
+        descripcion: productoAEditar.descripcion
+      });
+      alert('¡Publicación actualizada con éxito!');
+      setProductoAEditar(null);
+      obtenerProductos();
+    } catch (error) {
+      alert('Error al actualizar: ' + error.message);
     }
   };
 
@@ -184,7 +239,7 @@ function Feed({ user }) {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto', padding: '20px', fontFamily: 'sans-serif' }}>
-      {/* Barra superior con distintivo de Admin y Opciones de Cuenta */}
+      {/* Barra superior con distintivo de Admin, Notificaciones y Opciones de Cuenta */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #0056b3', paddingBottom: '10px', flexWrap: 'wrap', gap: '10px' }}>
         <div>
           <h2 style={{ margin: 0, display: 'inline-block', marginRight: '10px' }}>Mercado UBB</h2>
@@ -194,7 +249,15 @@ function Feed({ user }) {
             </span>
           )}
         </div>
+        
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          {/* Alerta de Mensajes No Leídos */}
+          {mensajesNoLeidos > 0 && (
+            <span style={{ backgroundColor: '#dc3545', color: 'white', padding: '4px 10px', borderRadius: '12px', fontSize: '12px', fontWeight: 'bold', animation: 'pulse 1.5s infinite' }}>
+              💬 {mensajesNoLeidos} mensaje(s) nuevo(s)
+            </span>
+          )}
+
           <span style={{ fontSize: '14px' }}>{user.email}</span>
           <button 
             onClick={cambiarClave} 
@@ -282,7 +345,6 @@ function Feed({ user }) {
               </button>
             </div>
 
-            {/* Input oculto para CÁMARA */}
             <input 
               type="file" 
               accept="image/*" 
@@ -292,7 +354,6 @@ function Feed({ user }) {
               style={{ display: 'none' }}
             />
 
-            {/* Input oculto para GALERÍA (Permite múltiple selección) */}
             <input 
               type="file" 
               accept="image/*" 
@@ -302,7 +363,6 @@ function Feed({ user }) {
               style={{ display: 'none' }}
             />
 
-            {/* Vista previa de las fotos seleccionadas */}
             {previewsImagenes.length > 0 && (
               <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', padding: '5px 0' }}>
                 {previewsImagenes.map((url, idx) => (
@@ -361,7 +421,6 @@ function Feed({ user }) {
           const esMiProducto = prod.vendedorUid === user.uid;
           const puedeModificar = esMiProducto || ES_ADMIN;
 
-          // Normalizar fotos
           const fotos = prod.imagenesUrls && prod.imagenesUrls.length > 0 
             ? prod.imagenesUrls 
             : (prod.imagenUrl ? [prod.imagenUrl] : []);
@@ -376,12 +435,63 @@ function Feed({ user }) {
               puedeModificar={puedeModificar} 
               onEliminar={handleEliminar}
               onToggleVendido={handleToggleVendido}
+              onEditar={(producto) => setProductoAEditar(producto)}
               onChat={() => setProductoSeleccionado(prod)}
               onAbrirModal={(indice) => setModalGaleria({ abierto: true, fotos, indice })}
             />
           );
         })}
       </div>
+
+      {/* Modal de Edición de Producto */}
+      {productoAEditar && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '15px' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '8px', padding: '20px', maxWidth: '450px', width: '100%', boxSizing: 'border-box' }}>
+            <h3>✏️ Editar Publicación</h3>
+            <form onSubmit={handleGuardarEdicion}>
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Título:</label>
+                <input 
+                  type="text" 
+                  value={productoAEditar.titulo} 
+                  onChange={(e) => setProductoAEditar({ ...productoAEditar, titulo: e.target.value })} 
+                  required 
+                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box', marginTop: '4px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '10px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Precio CLP ($):</label>
+                <input 
+                  type="number" 
+                  value={productoAEditar.precio} 
+                  onChange={(e) => setProductoAEditar({ ...productoAEditar, precio: e.target.value })} 
+                  required 
+                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box', marginTop: '4px' }}
+                />
+              </div>
+
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ fontSize: '12px', fontWeight: 'bold' }}>Descripción:</label>
+                <textarea 
+                  value={productoAEditar.descripcion} 
+                  onChange={(e) => setProductoAEditar({ ...productoAEditar, descripcion: e.target.value })} 
+                  style={{ width: '100%', padding: '8px', boxSizing: 'border-box', height: '70px', marginTop: '4px' }}
+                />
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" style={{ flex: 1, padding: '10px', backgroundColor: '#28a745', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  Guardar Cambios
+                </button>
+                <button type="button" onClick={() => setProductoAEditar(null)} style={{ flex: 1, padding: '10px', backgroundColor: '#6c757d', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                  Cancelar
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal / Visor de Fotos a Pantalla Completa */}
       {modalGaleria.abierto && (
@@ -394,8 +504,8 @@ function Feed({ user }) {
   );
 }
 
-// Componente para la Tarjeta de cada Producto con estado de VENDIDO y Slider
-function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeModificar, onEliminar, onToggleVendido, onChat, onAbrirModal }) {
+// Componente para la Tarjeta de cada Producto
+function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeModificar, onEliminar, onToggleVendido, onEditar, onChat, onAbrirModal }) {
   const [indiceFoto, setIndiceFoto] = useState(0);
 
   const anteriorFoto = (e) => {
@@ -431,7 +541,6 @@ function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeModificar, onEliminar, on
               style={{ width: '100%', height: '100%', objectFit: 'contain', filter: estaVendido ? 'grayscale(30%)' : 'none' }} 
             />
 
-            {/* Badge de VENDIDO sobre la foto */}
             {estaVendido && (
               <div style={{
                 position: 'absolute',
@@ -443,14 +552,12 @@ function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeModificar, onEliminar, on
                 borderRadius: '4px',
                 fontWeight: 'bold',
                 fontSize: '12px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-                letterSpacing: '1px'
+                boxShadow: '0 2px 4px rgba(0,0,0,0.3)'
               }}>
                 🏷️ VENDIDO
               </div>
             )}
 
-            {/* Controles para cambiar de foto si hay más de 1 */}
             {fotos.length > 1 && (
               <>
                 <button 
@@ -510,39 +617,24 @@ function TarjetaProducto({ prod, fotos, ES_ADMIN, puedeModificar, onEliminar, on
         </button>
 
         {puedeModificar && (
-          <div style={{ display: 'flex', gap: '5px', marginTop: '5px' }}>
+          <div style={{ display: 'flex', gap: '4px', marginTop: '6px' }}>
+            <button 
+              onClick={() => onEditar(prod)}
+              style={{ flex: 1, padding: '5px', backgroundColor: '#17a2b8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
+            >
+              ✏️ Editar
+            </button>
             <button 
               onClick={() => onToggleVendido(prod.id, estaVendido)}
-              style={{ 
-                flex: 1, 
-                padding: '6px', 
-                backgroundColor: estaVendido ? '#28a745' : '#ffc107', 
-                color: estaVendido ? 'white' : '#000', 
-                border: 'none', 
-                borderRadius: '4px', 
-                cursor: 'pointer', 
-                fontSize: '11px',
-                fontWeight: 'bold'
-              }}
+              style={{ flex: 1, padding: '5px', backgroundColor: estaVendido ? '#28a745' : '#ffc107', color: estaVendido ? 'white' : '#000', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px', fontWeight: 'bold' }}
             >
-              {estaVendido ? 'Reactivar' : 'Marcar Vendido'}
+              {estaVendido ? 'Reactivar' : 'Vendido'}
             </button>
-
             <button 
               onClick={() => onEliminar(prod.id)}
-              style={{ 
-                flex: 1, 
-                padding: '6px', 
-                backgroundColor: '#dc3545', 
-                color: 'white', 
-                border: 'none', 
-                borderRadius: '4px', 
-                cursor: 'pointer', 
-                fontSize: '11px',
-                fontWeight: ES_ADMIN ? 'bold' : 'normal'
-              }}
+              style={{ flex: 1, padding: '5px', backgroundColor: '#dc3545', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '11px' }}
             >
-              Eliminar
+              Borrar
             </button>
           </div>
         )}
